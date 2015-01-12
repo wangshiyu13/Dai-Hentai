@@ -12,9 +12,6 @@
 
 typedef enum {
     DiveExHentaiStatusFirstCheck,
-    DiveExHentaiStatusOpenPage,
-    DiveExHentaiStatusLogin,
-    DiveExHentaiStatusMeetPanda,
     DiveExHentaiStatusFinish
 } DiveExHentaiStatus;
 
@@ -22,14 +19,7 @@ typedef enum {
 
 #pragma mark - class method
 
-+ (void)diveByUserName:(NSString *)userName password:(NSString *)password completion:(void (^)(BOOL isSuccess))completion {
-    if (userName == nil || password == nil || completion == nil) {
-        NSLog(@"變數都要填滿!");
-        completion(NO);
-        return;
-    }
-    [self setUserName:userName];
-    [self setPassword:password];
++ (void)diveWhenCompletion:(void (^)(BOOL isSuccess))completion {
     [self setCompletion:completion];
     [self setStatus:DiveExHentaiStatusFirstCheck];
     [[self hentaiWebView] loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://exhentai.org/"]]];
@@ -47,64 +37,40 @@ typedef enum {
                 objc_removeAssociatedObjects(self);
             }
             else {
-                [self setStatus:DiveExHentaiStatusOpenPage];
-                [[self hentaiWebView] loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://e-hentai.org/"]]];
-            }
-            break;
-        }
-        //開啟 e-hentai 網頁階段, 由於可能開的不完整, 所以要 fill 到 ok 才按 button, 否則 reload
-        case DiveExHentaiStatusOpenPage:
-        {
-            if ([htmlTitle isEqualToString:@"E-Hentai.org -- Free Hentai, Doujinshi, Manga, CG Sets, H-Anime"]) {
-                NSString *autoFill = [NSString stringWithFormat:@"var userNameTextField = document.querySelectorAll(\"input[name='UserName']\"); userNameTextField[0].value = '%@';var passwordTextField = document.querySelectorAll(\"input[name='PassWord']\"); passwordTextField[0].value = '%@';", [self userName], [self password]];
-                if (![[[self hentaiWebView] stringByEvaluatingJavaScriptFromString:autoFill] isEqualToString:@""]) {
-                    NSLog(@"start to Login E-hentai...");
-                    [self setStatus:DiveExHentaiStatusLogin];
-                    [[self hentaiWebView] stringByEvaluatingJavaScriptFromString:@"var buttons = document.querySelectorAll(\"input[name='ipb_login_submit']\"); buttons[0].click();"];
-                }
-                else {
-                    [webView reload];
-                }
-            }
-            break;
-        }
-        
-        //登入之後拿下他的餅乾, 並且篡改所有的 e-hentai 變為 exhentai, 之後去開 exhentai.org 網頁
-        case DiveExHentaiStatusLogin:
-        {
-            if ([htmlTitle isEqualToString:@"E-Hentai.org -- Free Hentai, Doujinshi, Manga, CG Sets, H-Anime"]) {
-                NSHTTPCookieStorage *cookieStorage = [NSHTTPCookieStorage sharedHTTPCookieStorage];
-                for (NSHTTPCookie *each in cookieStorage.cookies) {
-                    NSMutableDictionary *newProperties = [NSMutableDictionary dictionaryWithDictionary:each.properties];
-                    NSString *newDomain = [each.properties[@"Domain"] stringByReplacingOccurrencesOfString:@"e-hentai" withString:@"exhentai"];
-                    newProperties[@"Domain"] = newDomain;
-                    [[self cookies] addObject:[[NSHTTPCookie alloc] initWithProperties:newProperties]];
-                }
-                
-                NSLog(@"got cookies and redirect to exhentai.org...");
-                [self setStatus:DiveExHentaiStatusMeetPanda];
-                [[self hentaiWebView] loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"http://exhentai.org/"]]];
-            }
-            break;
-        }
-        
-        //開啟 exhentai.org 網頁之後會看到熊貓人, 這時候把篡改的餅乾整個替換過去, 重新 load 網頁
-        case DiveExHentaiStatusMeetPanda:
-        {
-            NSRange range = [htmlTitle rangeOfString:@"exhentai.org 260×260"];
-            if (range.location != NSNotFound) {
-                NSHTTPCookieStorage *cookieStorage = [NSHTTPCookieStorage sharedHTTPCookieStorage];
-                for (NSHTTPCookie *each in cookieStorage.cookies) {
-                    [cookieStorage deleteCookie:each];
-                }
-                
-                for (NSHTTPCookie *eachCookies in [self cookies]) {
-                    [cookieStorage setCookie:eachCookies];
-                }
-                
-                NSLog(@"meet panda and replace cookies...");
-                [self setStatus:DiveExHentaiStatusFinish];
-                [[self hentaiWebView] reload];
+                [NSURLConnection sendAsynchronousRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://s3-ap-northeast-1.amazonaws.com/daidoujiminecraft/Daidouji/ehentai/cookies.json"]] queue:[NSOperationQueue mainQueue] completionHandler:^(NSURLResponse *response, NSData *data, NSError *connectionError) {
+                    
+                    if (connectionError) {
+                        [self completion](NO);
+                    }
+                    else {
+                        NSArray *responseResult = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
+                        
+                        NSMutableArray *cookies = [NSMutableArray array];
+                        
+                        for (NSDictionary *eachCookie in responseResult) {
+                            NSMutableDictionary *newProperties = [NSMutableDictionary dictionary];
+                            newProperties[@"Domain"] = [eachCookie[@"domain"] stringByReplacingOccurrencesOfString:@"e-hentai" withString:@"exhentai"];
+                            newProperties[@"Expires"] = [NSDate dateWithTimeIntervalSince1970:[eachCookie[@"expirationDate"] floatValue]];
+                            newProperties[@"Name"] = eachCookie[@"name"];
+                            newProperties[@"Path"] = eachCookie[@"path"];
+                            newProperties[@"Value"] = eachCookie[@"value"];
+                            NSHTTPCookie *newCookie = [[NSHTTPCookie alloc] initWithProperties:newProperties];
+                            [cookies addObject:newCookie];
+                        }
+                        
+                        NSHTTPCookieStorage *cookieStorage = [NSHTTPCookieStorage sharedHTTPCookieStorage];
+                        for (NSHTTPCookie *each in cookieStorage.cookies) {
+                            [cookieStorage deleteCookie:each];
+                        }
+                        
+                        for (NSHTTPCookie *eachCookies in cookies) {
+                            [cookieStorage setCookie:eachCookies];
+                        }
+                        
+                        [self setStatus:DiveExHentaiStatusFinish];
+                        [[self hentaiWebView] reload];
+                    }
+                }];
             }
             break;
         }
@@ -135,34 +101,11 @@ typedef enum {
     return objc_getAssociatedObject(self, _cmd);
 }
 
-+ (NSMutableArray *)cookies {
-    if (!objc_getAssociatedObject(self, _cmd)) {
-        objc_setAssociatedObject(self, _cmd, [NSMutableArray array], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    }
-    return objc_getAssociatedObject(self, _cmd);
-}
-
 + (void)setCompletion:(void (^)(BOOL isSuccess))completion {
     objc_setAssociatedObject(self, @selector(completion), completion, OBJC_ASSOCIATION_COPY_NONATOMIC);
 }
 
 + (void (^)(BOOL successed))completion {
-    return objc_getAssociatedObject(self, _cmd);
-}
-
-+ (void)setUserName:(NSString *)userName {
-    objc_setAssociatedObject(self, @selector(userName), userName, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
-+ (NSString *)userName {
-    return objc_getAssociatedObject(self, _cmd);
-}
-
-+ (void)setPassword:(NSString *)password {
-    objc_setAssociatedObject(self, @selector(password), password, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
-+ (NSString *)password {
     return objc_getAssociatedObject(self, _cmd);
 }
 

@@ -4,6 +4,14 @@
 <array>
 	<dict>
 		<key>displayName</key>
+		<string>已下載</string>
+		<key>image</key>
+		<string>dropbox_copyrighted</string>
+		<key>controller</key>
+		<string>DownloadedViewController</string>
+	</dict>
+	<dict>
+		<key>displayName</key>
 		<string>E-Hentai主頁</string>
 		<key>image</key>
 		<string>exterior</string>
@@ -17,14 +25,6 @@
 		<string>exterior</string>
 		<key>controller</key>
 		<string>ExMainViewController</string>
-	</dict>
-	<dict>
-		<key>displayName</key>
-		<string>已下載</string>
-		<key>image</key>
-		<string>dropbox_copyrighted</string>
-		<key>controller</key>
-		<string>DownloadedViewController</string>
 	</dict>
 	<dict>
 		<key>displayName</key>

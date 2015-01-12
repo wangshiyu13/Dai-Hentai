@@ -11,6 +11,6 @@
 
 @interface DiveExHentai : NSObject
 
-+ (void)diveByUserName:(NSString *)userName password:(NSString *)password completion:(void (^)(BOOL isSuccess))completion;
++ (void)diveWhenCompletion:(void (^)(BOOL isSuccess))completion;
 
 @end

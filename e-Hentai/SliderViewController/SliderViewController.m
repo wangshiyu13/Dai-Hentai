@@ -126,9 +126,9 @@
 
 //設定中間的 viewcontroller
 - (void)setupCenterViewController {
-	MainViewController *mainViewController = [MainViewController new];
-	mainViewController.delegate = self;
-	UINavigationController *navigationController = [[UINavigationController alloc] initWithRootViewController:mainViewController];
+	DownloadedViewController *downloadedViewController = [DownloadedViewController new];
+	downloadedViewController.delegate = self;
+	UINavigationController *navigationController = [[UINavigationController alloc] initWithRootViewController:downloadedViewController];
 	self.centerController = navigationController;
 }
 

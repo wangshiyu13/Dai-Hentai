@@ -8,7 +8,7 @@
 
 #import "IIViewDeckController.h"
 
-#import "MainViewController.h"
+#import "DownloadedViewController.h"
 #import "MenuViewController.h"
 #import "DownloadManagerViewController.h"
 
